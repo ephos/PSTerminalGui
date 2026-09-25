@@ -1,0 +1,104 @@
+name: Validation Workflow
+
+# This is a reusable workflow called by other workflows
+
+on:
+  # This is going to be referenced by other workflows
+  workflow_call:
+
+jobs:
+  validate:
+    name: Validate Workflow
+    runs-on: ubuntu-latest
+
+    # Needed for test reporting
+    permissions:
+      checks: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Extract Repo Name
+        id: repo_name
+        run: echo "repo_name=$(echo '${{ github.repository }}' | cut -d '/' -f 2)" >> $GITHUB_OUTPUT
+          
+      - name: Install Linting and Testing Deps
+        shell: pwsh
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.5.0
+          Install-Module -Name PSScriptAnalyzer -MinimumVersion 1.21.0
+
+      - name: Restore Terminal.Gui Dependencies
+        shell: pwsh
+        run: |
+          ./build/Install-TGDependency.ps1 | Format-Table -AutoSize
+
+      - name: PSScriptAnalyzer Linting
+        shell: pwsh
+        run: |
+          Invoke-ScriptAnalyzer -Path ./src/ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+
+      - name: Pester Test Runs 
+        shell: pwsh
+        run: |
+          $results = Invoke-Pester -Path ./tests/ -CI -PassThru
+          $results | ConvertTo-JUnitReport -AsString | Out-File -Path testResults.xml -Force
+
+      - name: Version Update Check
+        #if: ${{ github.event.pull_request.state != 'closed' }}
+        if: github.ref != 'refs/heads/main'
+        shell: pwsh
+        run: |
+
+          # Fetch the current psd1 as it sits in main
+          git fetch origin main:main
+          # First release: main has no manifest to compare against yet.
+          git cat-file -e FETCH_HEAD:src/${{ steps.repo_name.outputs.repo_name }}.psd1 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            "ℹ️ main has no module manifest yet, skipping the version check."
+            exit 0
+          }
+          git show FETCH_HEAD:src/${{ steps.repo_name.outputs.repo_name }}.psd1 | Out-File -Path main-manifest.psd1
+
+          # Get the current Git commit hash and main branch hash.
+          $mainCommitId = & git rev-parse main
+          $branchCommitId = & git rev-parse HEAD
+          "`nGit Commit Hashes:"
+          "`tMain Commit Hash ID: `e[38;2;56;136;255m $mainCommitId `e[0m"
+          "`tBranch Commit Hash ID: `e[38;2;56;136;255m $branchCommitId `e[0m"
+
+          "`nFetching current Manifest ModuleVersion from main..."
+          $prevManifest = Import-PowerShellDataFile -Path ./main-manifest.psd1
+          $prevVer = [System.Version]::Parse($prevManifest.ModuleVersion)
+
+          # Import the current manifest
+          "Fetching new Manifest ModuleVersion from branch..."
+          $branchManifest = Import-PowerShellDataFile -Path ./src/*psd1
+          $branchVer = [System.Version]::Parse($branchManifest.ModuleVersion)
+
+          "`nVersions:"
+          "`tNew Version (branch $env:GITHUB_REF_NAME):`e[38;2;56;136;255m $branchVer `e[0m "
+          "`tPrevious Version (branch main):`e[38;2;56;136;255m $prevVer `e[0m "
+          "`n"
+
+          # Check if version hasnt been udpated
+          if ($mainCommitId -eq $branchCommitId) {
+            "ℹ️ No new Git commits have been pushed to this branch yet, branch ($branchCommitId) and main ($mainCommitId) Git commit hashes are equal."
+          } elseif ($prevVer -eq $branchVer) {
+            "`e[38;2;255;0;0m❌ Branch Module Manfiest version ($branchVer) matches the main branch version ($prevVer), please update!`e[0m"
+            exit 1
+          } elseif ($branchVer -lt $prevVer) {
+            "`e[38;2;255;0;0m❌ SemVer violation! ($branchVer) cannot be less than ($prevVer), please update!`e[0m"
+            exit 1
+          } else {
+            "`e[38;2;0;255;0m✅ Version check pass! Good job, you're a SemVer pro 😎!`e[0m"
+          }
+
+      - name: Report Tests
+        uses: dorny/test-reporter@v1.6.0
+        if: success() || failure()
+        with:
+          name: Pester Test Results
+          path: testResults.xml
+          reporter: jest-junit
