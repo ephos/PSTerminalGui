@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Configuration>
+  <ViewDefinitions>
+    <View>
+      <Name>PSTerminalGuiTimeoutView</Name>
+      <ViewSelectedBy>
+        <TypeName>PSTerminalGui.Timeout</TypeName>
+      </ViewSelectedBy>
+      <TableControl>
+        <TableHeaders>
+          <TableColumnHeader><Label>Interval</Label><Width>16</Width></TableColumnHeader>
+          <TableColumnHeader><Label>Active</Label><Width>8</Width></TableColumnHeader>
+          <TableColumnHeader><Label>ScriptBlock</Label></TableColumnHeader>
+        </TableHeaders>
+        <TableRowEntries>
+          <TableRowEntry>
+            <TableColumnItems>
+              <TableColumnItem><PropertyName>Interval</PropertyName></TableColumnItem>
+              <TableColumnItem><ScriptBlock>$null -ne $_.Handle</ScriptBlock></TableColumnItem>
+              <TableColumnItem><ScriptBlock>$_.ScriptBlock.ToString().Trim()</ScriptBlock></TableColumnItem>
+            </TableColumnItems>
+          </TableRowEntry>
+        </TableRowEntries>
+      </TableControl>
+    </View>
+  </ViewDefinitions>
+</Configuration>
