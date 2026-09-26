@@ -57,6 +57,30 @@ Describe 'Start-TGApplication' -Tag 'Integration' {
     }
 }
 
+Describe 'Set-TGStyle title rendering' -Tag 'Integration' {
+    It 'draws styled titles on focused and unfocused views and keeps the end caps' {
+        $focused = New-TGFrameView 'One' -Width 20 -Height 4 { New-TGButton 'x' } | Set-TGStyle -TitleForeground BrightYellow -TitleBackground Red -PassThru
+        $unfocused = New-TGFrameView 'Two' -X 22 -Width 20 -Height 4 { New-TGLabel 'y' } | Set-TGStyle -TitleForeground BrightYellow -TitleBackground Red -PassThru
+        $script:rows = @{}
+        $null = Add-TGTimeout 100 {
+            $contents = $focused.App.Driver.Contents
+            foreach ($view in $focused, $unfocused) {
+                $origin = $view.FrameToScreen()
+                $script:rows[$view.Title] = @(1..4 | ForEach-Object { $contents[$origin.Y, ($origin.X + $_)] })
+            }
+            Stop-TGApplication
+        }
+        New-TGWindow 'w' { $focused; $unfocused } | Start-TGApplication -Driver ansi
+
+        foreach ($title in 'One', 'Two') {
+            $cells = $script:rows[$title]
+            $cells[0].Grapheme | Should -Be '┤' -Because "$title keeps its left cap"
+            -join $cells[1..3].Grapheme | Should -Be $title
+            $cells[1..3] | ForEach-Object { "$($_.Attribute)" | Should -Be '[BrightYellow,Red,None]' -Because "$title is styled" }
+        }
+    }
+}
+
 Describe 'Get-TGSelectedItem' -Tag 'Integration' {
     It 'returns the original object for list and table selections' {
         $items = 1..5 | ForEach-Object { [PSCustomObject]@{ Name = "item$_"; Value = $_ } }

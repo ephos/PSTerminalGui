@@ -38,6 +38,11 @@ TGWindow 'Styles (Esc quits)' {
             }
             TGButton 'Opaque shadow' -X 1 -Y 12 | Set-TGStyle -Shadow Opaque -PassThru
             TGButton 'Transparent shadow' -X 22 -Y 12 | Set-TGStyle -Shadow Transparent -PassThru
+
+            # Titles can be styled separately from the border, focused or not.
+            TGFrameView 'Cyan title' -X 1 -Y 15 -Width 24 -Height 3 | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru
+            TGFrameView 'Alert title' -X 27 -Y 15 -Width 24 -Height 3 | Set-TGStyle -TitleForeground White -TitleBackground Red -PassThru
+            TGFrameView 'Italic title' -X 53 -Y 15 -Width 24 -Height 3 | Set-TGStyle -TitleForeground '#FF8800' -TitleStyle Italic -PassThru
         }
 
         TGTab '_Schemes' {
@@ -61,4 +66,4 @@ TGWindow 'Styles (Esc quits)' {
             TGColorPicker 'Blue' -Id bg -X 1 -Y 10 -Width Fill-1 -OnValueChanged { Update-Preview }
         }
     }
-} | Start-TGApplication
+} | Set-TGStyle -TitleForeground BrightYellow -TitleStyle Bold -PassThru | Start-TGApplication

@@ -274,3 +274,26 @@ Describe 'Set-TGStyle' {
         New-TGLabel 'x' | Set-TGStyle -Foreground Red | Should -BeNullOrEmpty
     }
 }
+
+Describe 'Set-TGStyle title' {
+    It 'overlays one title label with the title text, without the hotkey marker' {
+        $frame = New-TGFrameView '_Options' | Set-TGStyle -TitleForeground BrightCyan -PassThru
+        $frame | Set-TGStyle -TitleStyle Bold
+        $labels = @($frame.Border.View.SubViews | Where-Object { $_.Data -eq 'PSTerminalGui.Title' })
+        $labels.Count | Should -Be 1
+        $labels[0].Text | Should -Be 'Options'
+        $labels[0].CanFocus | Should -BeFalse
+        $labels[0].GetScheme().Normal.Foreground | Should -Be ([Terminal.Gui.Drawing.Color]'BrightCyan')
+        "$($labels[0].GetScheme().Normal.Style)" | Should -Be 'Bold'
+    }
+
+    It 'follows title changes' {
+        $frame = New-TGFrameView 'Before' | Set-TGStyle -TitleForeground Red -PassThru
+        $frame.Title = 'After'
+        ($frame.Border.View.SubViews | Where-Object { $_.Data -eq 'PSTerminalGui.Title' }).Text | Should -Be 'After'
+    }
+
+    It 'throws for a view without a border' {
+        { New-TGLabel 'x' | Set-TGStyle -TitleForeground Red } | Should -Throw '*no top border*'
+    }
+}
