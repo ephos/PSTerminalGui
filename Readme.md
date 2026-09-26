@@ -79,11 +79,20 @@ if ((Show-TGMessageBox 'Deploy to production?' -Button Yes, No) -eq 'Yes') { ./d
 
 ### Styling
 
-`Set-TGStyle` sets colors (names like `BrightYellow` or hex like `#FF8800`), text style, border, and shadow. Add `-PassThru` to keep the view in a content block:
+`Set-TGStyle` sets colors (names like `BrightYellow` or hex like `#FF8800`), text style, border, title, and shadow. Add `-PassThru` to keep the view in a content block:
 
 ```powershell
 TGLabel 'Build failed' | Set-TGStyle -Foreground BrightYellow -Background Red -TextStyle Bold -PassThru
 TGFrameView 'Status' { TGLabel 'OK' } | Set-TGStyle -BorderStyle Rounded -Scheme Accent -PassThru
+```
+
+Titles can be colored on their own with `-TitleForeground`, `-TitleBackground`, and `-TitleStyle`. This works on any view with a border (windows, frames, dialogs), whether it has focus or not:
+
+```powershell
+TGWindow 'Dashboard' {
+    TGFrameView 'CPU' -Width 30 -Height 5 | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru
+    TGFrameView 'Alerts' -X 31 -Width 30 -Height 5 | Set-TGStyle -TitleForeground White -TitleBackground Red -PassThru
+} | Set-TGStyle -TitleForeground BrightYellow -PassThru | Start-TGApplication
 ```
 
 ## Practical Examples
@@ -133,7 +142,7 @@ TGWindow 'Pokédex (Esc quits)' {
 
 ### Style gallery: colors, text, borders, and schemes
 
-[examples/07-Styles.ps1](examples/07-Styles.ps1) is a tabbed tour of what `Set-TGStyle` can do. It has swatches for the 16 standard colors plus hex colors, every text style, every border line style, shadows, the named theme schemes, and a live color mixer built from two color pickers.
+[examples/07-Styles.ps1](examples/07-Styles.ps1) is a tabbed tour of what `Set-TGStyle` can do. It has swatches for the 16 standard colors plus hex colors, every text style, every border line style, styled titles, shadows, the named theme schemes, and a live color mixer built from two color pickers.
 
 ```powershell
 function Update-Preview {
