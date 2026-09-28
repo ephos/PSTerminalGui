@@ -8,8 +8,13 @@ on:
 
 jobs:
   validate:
-    name: Validate Workflow
-    runs-on: ubuntu-latest
+    name: Validate Workflow (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Terminal.Gui's native syntax highlighting library differs per OS, so test on each.
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     # Needed for test reporting
     permissions:
@@ -35,6 +40,7 @@ jobs:
           ./build/Install-TGDependency.ps1 | Format-Table -AutoSize
 
       - name: PSScriptAnalyzer Linting
+        if: runner.os == 'Linux'
         shell: pwsh
         run: |
           Invoke-ScriptAnalyzer -Path ./src/ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
@@ -42,12 +48,14 @@ jobs:
       - name: Pester Test Runs 
         shell: pwsh
         run: |
-          $results = Invoke-Pester -Path ./tests/ -CI -PassThru
+          # Integration tests run real application loops on the terminal; only the Linux runner runs them.
+          $exclude = if ($IsLinux) { @() } else { @('Integration') }
+          $results = Invoke-Pester -Path ./tests/ -CI -PassThru -ExcludeTag $exclude
           $results | ConvertTo-JUnitReport -AsString | Out-File -Path testResults.xml -Force
 
       - name: Version Update Check
         #if: ${{ github.event.pull_request.state != 'closed' }}
-        if: github.ref != 'refs/heads/main'
+        if: github.ref != 'refs/heads/main' && runner.os == 'Linux'
         shell: pwsh
         run: |
 
@@ -99,6 +107,6 @@ jobs:
         uses: dorny/test-reporter@v1.6.0
         if: success() || failure()
         with:
-          name: Pester Test Results
+          name: Pester Test Results (${{ matrix.os }})
           path: testResults.xml
           reporter: jest-junit

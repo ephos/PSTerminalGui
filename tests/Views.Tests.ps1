@@ -28,6 +28,7 @@ Describe 'View constructors' {
         @{ Command = { New-TGProgressBar 0.5 }; Type = 'Terminal.Gui.Views.ProgressBar' }
         @{ Command = { New-TGSpinnerView }; Type = 'Terminal.Gui.Views.SpinnerView' }
         @{ Command = { New-TGMarkdown '# Hi' }; Type = 'Terminal.Gui.Views.Markdown' }
+        @{ Command = { New-TGGraphView 1, 2 }; Type = 'Terminal.Gui.Views.GraphView' }
         @{ Command = { New-TGMenuBar }; Type = 'Terminal.Gui.Views.MenuBar' }
         @{ Command = { New-TGMenuBarItem '_File' }; Type = 'Terminal.Gui.Views.MenuBarItem' }
         @{ Command = { New-TGMenuItem '_Open' }; Type = 'Terminal.Gui.Views.MenuItem' }
@@ -153,6 +154,68 @@ Describe 'Data views' {
         $tree = New-TGTreeView 1 -ChildScript { if ($_ -lt 3) { $_ * 10; $_ * 10 + 1 } }
         @($tree.TreeBuilder.GetChildren(1)) | Should -Be @(10, 11)
         $tree.TreeBuilder.CanExpand(30) | Should -BeFalse
+    }
+}
+
+Describe 'Graph views' {
+    BeforeAll {
+        $people = @(
+            [PSCustomObject]@{ Name = 'Ada'; Age = 36; Height = 160 }
+            [PSCustomObject]@{ Name = 'Grace'; Age = 85; Height = 170 }
+        )
+    }
+
+    It 'builds bars from -Value, labelled by Name' {
+        $graph = $people | New-TGGraphView -Value Age
+        $graph.Series[0].Bars.Text | Should -Be @('Ada', 'Grace')
+        $graph.Series[0].Bars.Value | Should -Be @(36, 85)
+    }
+
+    It 'builds bars from plain numbers and -Label scriptblocks' {
+        $graph = 3, 5 | New-TGGraphView -Label { "n$_" }
+        $graph.Series[0].Bars.Text | Should -Be @('n3', 'n5')
+        $graph.Series[0].Bars.Value | Should -Be @(3, 5)
+    }
+
+    It 'builds scatter points from -XValue and -Value' {
+        $graph = $people | New-TGGraphView -Type Scatter -XValue Height -Value { $_.Age * 2 }
+        $graph.Series[0].GetType().Name | Should -Be 'ScatterSeries'
+        $graph.Series[0].Points.X | Should -Be @(160, 170)
+        $graph.Series[0].Points.Y | Should -Be @(72, 170)
+    }
+
+    It 'builds a line from input positions' {
+        $graph = 4, 8, 6 | New-TGGraphView -Type Line
+        $graph.Annotations[0].Points.X | Should -Be @(0, 1, 2)
+        $graph.Annotations[0].Points.Y | Should -Be @(4, 8, 6)
+    }
+
+    It 'applies color, fill, and axis titles' {
+        $graph = 1 | New-TGGraphView -Color BrightGreen -Fill '#' -XAxisTitle 'x' -YAxisTitle 'y'
+        $graph.Series[0].Bars[0].Fill.Color.Foreground | Should -Be ([Terminal.Gui.Drawing.Color]'BrightGreen')
+        "$($graph.Series[0].Bars[0].Fill.Rune)" | Should -Be '#'
+        $graph.AxisX.Text | Should -Be 'x'
+        $graph.AxisY.Text | Should -Be 'y'
+    }
+
+    It 'throws for values that are not numbers' {
+        { $people | New-TGGraphView -Value Name } | Should -Throw "*'Name' of*is not a number*"
+    }
+}
+
+Describe 'Markdown syntax highlighting' {
+    It 'highlights code blocks by default' {
+        (New-TGMarkdown '# Hi').SyntaxHighlighter.ThemeName | Should -Be 'DarkPlus'
+    }
+
+    It 'honours -NoSyntaxHighlighting' {
+        (New-TGMarkdown '# Hi' -NoSyntaxHighlighting).SyntaxHighlighter | Should -BeNullOrEmpty
+    }
+
+    It 'loads the native TextMate regex library for this platform' {
+        # Throws DllNotFoundException when libonigwrap was not restored next to the assemblies.
+        $highlighter = (New-TGMarkdown '# Hi').SyntaxHighlighter
+        $highlighter.Highlight('$x = Get-Process', 'powershell').Text | Should -Contain 'Get-Process'
     }
 }
 

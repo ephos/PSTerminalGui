@@ -92,8 +92,47 @@ Describe 'Invoke-TGOnUIThread' -Tag 'Integration' {
     }
 }
 
+Describe 'New-TGGraphView' -Tag 'Integration' {
+    It 'fits the scale to the data and draws bar labels' {
+        $window = New-TGWindow 'w' {
+            [PSCustomObject]@{ Name = 'alpha'; N = 3 }, [PSCustomObject]@{ Name = 'beta'; N = 12 } |
+                New-TGGraphView -Id graph -Value N
+        }
+        $null = Add-TGTimeout 100 {
+            $script:screen = (& (Get-Module PSTerminalGui) { $script:TGApp }).Driver.ToString()
+            Stop-TGApplication
+        }
+        $window | Start-TGApplication -Driver ansi
+        $graph = Get-TGView graph
+        $graph.ScrollOffset.Y | Should -Be 0
+        $graph.CellSize.X | Should -BeLessThan 1
+        $script:screen | Should -Match 'alpha'
+        $script:screen | Should -Match 'beta'
+    }
+}
+
 Describe 'Get-TGApplication guard' {
     It 'Stop-TGApplication throws when nothing is running' {
         { Stop-TGApplication } | Should -Throw '*No Terminal.Gui application is running*'
+    }
+}
+
+Describe 'Install-TGDependency' {
+    It 'reports an existing install instead of restoring again' {
+        Install-TGDependency 6>&1 | Should -Match 'already installed'
+    }
+
+    It 'imports with only Install-TGDependency when Terminal.Gui cannot be restored' {
+        # A dependency folder under a file cannot be created, so the restore fails before any download.
+        $blocker = New-TemporaryFile
+        $manifest = (Resolve-Path "$PSScriptRoot/../src/PSTerminalGui.psd1").Path
+        $env:PSTERMINALGUI_DEPENDENCY_PATH = Join-Path -Path $blocker -ChildPath 'deps'
+        try {
+            $commands = pwsh -NoProfile -Command "Import-Module '$manifest' 3>`$null; (Get-Command -Module PSTerminalGui).Name"
+        } finally {
+            Remove-Item -Path Env:PSTERMINALGUI_DEPENDENCY_PATH
+            Remove-Item -Path $blocker
+        }
+        $commands | Should -Be 'Install-TGDependency'
     }
 }

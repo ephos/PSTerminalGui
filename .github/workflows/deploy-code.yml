@@ -29,11 +29,7 @@ jobs:
           echo "repo_name=$(echo '${{ github.repository }}' | cut -d '/' -f 2)" >> $GITHUB_OUTPUT
           echo ${{ steps.repo_name.outputs.repo_name }}
           
-      - name: Restore Terminal.Gui Dependencies
-        shell: pwsh
-        run: |
-          ./build/Install-TGDependency.ps1 | Format-Table -AutoSize
-
+      # Terminal.Gui is not bundled: the module restores it per user, with native libraries for their OS, on first import.
       - name: Rename 'src' to Module Name
         shell: pwsh
         run: |
