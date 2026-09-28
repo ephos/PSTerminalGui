@@ -1,5 +1,8 @@
 # PSTerminalGui
 
+> [!WARNING]
+> This module is vibe coded, largely written with AI assistance, and may contain errors. Use it at your own risk.
+
 ## Overview
 
 A PowerShell module for building terminal user interfaces (TUIs), wrapping [Terminal.Gui v2](https://github.com/tui-cs/Terminal.Gui).
@@ -24,13 +27,22 @@ Requires PowerShell 7.6+ (Terminal.Gui 2.5 targets .NET 10).
 
 ## Getting Started
 
-The Terminal.Gui assemblies are not committed. Restore them once (no .NET SDK needed, it downloads from nuget.org):
-
 ```powershell
-./build/Install-TGDependency.ps1
 Import-Module ./src/PSTerminalGui.psd1
 ./examples/01-HelloWorld.ps1
 ```
+
+The Terminal.Gui assemblies are not committed or bundled. The first import downloads them from nuget.org (no .NET SDK needed), together with the native libraries for your OS and CPU, into a per-user folder:
+
+| OS | Folder |
+| --- | --- |
+| Linux | `~/.local/share/PSTerminalGui/<version>` |
+| macOS | `~/Library/Application Support/PSTerminalGui/<version>` |
+| Windows | `%LOCALAPPDATA%\PSTerminalGui\<version>` |
+
+Set `$env:PSTERMINALGUI_DEPENDENCY_PATH` to use another base folder. Run `Install-TGDependency -Force` to repair an install.
+
+If the download fails (offline, proxy), the module still imports but only `Install-TGDependency` is available. Fix the cause, run `Install-TGDependency`, then `Import-Module PSTerminalGui -Force`.
 
 ## Writing UIs
 
@@ -85,6 +97,23 @@ if ((Show-TGMessageBox 'Deploy to production?' -Button Yes, No) -eq 'Yes') { ./d
 TGLabel 'Build failed' | Set-TGStyle -Foreground BrightYellow -Background Red -TextStyle Bold -PassThru
 TGFrameView 'Status' { TGLabel 'OK' } | Set-TGStyle -BorderStyle Rounded -Scheme Accent -PassThru
 ```
+
+### Charts
+
+`New-TGGraphView` turns pipeline data into a bar, scatter, or line chart that scales itself to fit. `-Value`, `-Label`, and `-XValue` take a property name or a scriptblock:
+
+```powershell
+Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 8 |
+    TGGraphView -Value { $_.WorkingSet64 / 1MB } -YAxisTitle 'MB' -Color BrightCyan
+
+1..40 | TGGraphView -Type Line -Value { [math]::Sin($_ / 5) } -Color BrightGreen
+```
+
+To update a chart, change its data (the series in `.Series`, or for a line the path in `.Annotations`) and call `.SetNeedsDraw()`. See [examples/09-Charts.ps1](examples/09-Charts.ps1).
+
+### Markdown
+
+`New-TGMarkdown` renders Markdown with syntax highlighted code blocks on Linux, macOS, and Windows. Token colors follow the Terminal.Gui theme. Use `-NoSyntaxHighlighting` to turn highlighting off. See [examples/10-MarkdownViewer.ps1](examples/10-MarkdownViewer.ps1).
 
 ## Practical Examples
 
@@ -237,11 +266,11 @@ TGWindow 'System dashboard (Esc quits)' {
 
 | Group | Commands |
 | --- | --- |
-| Application | `Start-TGApplication`, `Stop-TGApplication`, `Invoke-TGOnUIThread`, `Add-TGTimeout`, `Remove-TGTimeout` |
+| Application | `Start-TGApplication`, `Stop-TGApplication`, `Invoke-TGOnUIThread`, `Add-TGTimeout`, `Remove-TGTimeout`, `Install-TGDependency` |
 | Wiring | `Add-TGView`, `Get-TGView`, `Get-TGSelectedItem`, `Register-TGEvent`, `Set-TGFocus`, `Set-TGStyle`, `New-TGPos`, `New-TGDim` |
 | Containers | `New-TGWindow`, `New-TGDialog`, `New-TGFrameView`, `New-TGTabs`, `New-TGTab`, `New-TGWizard`, `New-TGWizardStep` |
 | Input | `New-TGLabel`, `New-TGButton`, `New-TGTextField`, `New-TGTextView`, `New-TGCheckBox`, `New-TGOptionSelector`, `New-TGLinearSelector`, `New-TGNumericUpDown`, `New-TGDatePicker`, `New-TGColorPicker`, `New-TGDropDownList` |
-| Data / display | `New-TGListView`, `New-TGTableView`, `New-TGTreeView`, `New-TGProgressBar`, `New-TGSpinnerView`, `New-TGMarkdown` |
+| Data / display | `New-TGListView`, `New-TGTableView`, `New-TGTreeView`, `New-TGGraphView`, `New-TGProgressBar`, `New-TGSpinnerView`, `New-TGMarkdown` |
 | Menus | `New-TGMenuBar`, `New-TGMenuBarItem`, `New-TGMenuItem`, `New-TGStatusBar`, `New-TGShortcut`, `New-TGPopoverMenu`, `Show-TGPopoverMenu` |
 | Dialogs | `Show-TGMessageBox`, `Show-TGOpenDialog`, `Show-TGSaveDialog` |
 
@@ -250,7 +279,7 @@ Every command has comment-based help: `Get-Help New-TGTableView -Examples`.
 ## Development
 
 ```powershell
-./build/Install-TGDependency.ps1                   # restore Terminal.Gui DLLs into src/lib
+./build/Install-TGDependency.ps1 -Force            # restore Terminal.Gui into the per-user folder again (import restores it when missing)
 ./build/Update-TGManifest.ps1                      # sync FunctionsToExport/AliasesToExport after adding a public function
 Invoke-ScriptAnalyzer -Path ./src -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
 Invoke-Pester -Path ./tests                        # add -ExcludeTag Integration to skip the tests that run an app loop
@@ -258,12 +287,37 @@ Invoke-Pester -Path ./tests                        # add -ExcludeTag Integration
 
 The integration tests run real application loops with the `ansi` driver, so they briefly draw to the terminal.
 
+### Project layout
+
+| Path | Contents |
+| --- | --- |
+| `src/PSTerminalGui.psm1` | Pins the Terminal.Gui version, loads its DLLs from the per-user folder (restoring them if missing), sets up module state, dot sources functions, formats, and completers |
+| `src/PSTerminalGui.psd1` | Manifest with explicit `FunctionsToExport` / `AliasesToExport` (keep in sync with `Update-TGManifest.ps1`) |
+| `src/Functions/Public/` | One exported command per file |
+| `src/Functions/Private/` | Shared helpers, e.g. `Set-TGViewCommon` (`-Id`, layout, `-Property`) and `ConvertTo-TGPos` / `ConvertTo-TGDim` (parse `'Center+2'`, `'Fill-1'`, `'50%'`) |
+| `src/Format/`, `src/Completers/` | Output formatting and the `Register-TGEvent` event name completer |
+| `build/` | Dev wrappers: dependency restore and manifest sync |
+| `examples/` | Runnable demo scripts |
+| `tests/` | Pester tests: `Application`, `Layout`, `Manifest`, `Views` |
+
+### How it works
+
+- **Assembly loading:** the `.psm1` loads every managed DLL in the dependency folder before dot sourcing anything, because scripts that reference `[Terminal.Gui.*]` types fail to parse otherwise. Native libraries (such as `libonigwrap`, for syntax highlighting) sit in the same folder, where .NET finds them.
+- **View registry:** `-Id` stores the view in a module-scoped table, which is what `Get-TGView` and `Get-TGSelectedItem <id>` read.
+- **Application loop:** `Start-TGApplication` creates and initializes the application, or runs the view as a nested modal when one is already running. Exceptions thrown in event handlers stop the app and are rethrown once the terminal is restored.
+- **Cross-thread work:** `Invoke-TGOnUIThread` puts work on a queue stored on the AppDomain, so thread jobs in other runspaces can reach it. The UI thread drains it every 50 ms.
+- **Timeouts:** `Add-TGTimeout` calls made before the app starts are queued and registered when it does.
+
+### CI
+
+Pushes to branches and PRs to `main` run `.github/workflows/validate-wf.yml` on Linux, macOS, and Windows: restore dependencies and run Pester (JUnit report). The Linux job also runs PSScriptAnalyzer, the Integration tests, and a check that `ModuleVersion` in the manifest is higher than on `main`. Bump the version in `src/PSTerminalGui.psd1` in every PR.
+
 ## Current Known Issues
 
-- Terminal.Gui's `GraphView` is not wrapped yet.
-- Syntax highlighting in `Markdown` code blocks needs the native `libonigwrap` library, which the dependency script does not restore.
+- Syntax highlighting has only been verified on Linux x64. The dependency script restores the native `libonigwrap` for macOS (x64, arm64) and Windows (x64, x86, arm64) too, and CI checks those platforms.
+- Charts draw one series each. Add more with `.Series.Add()` / `.Annotations.Add()`; the scale fits all of them.
 
 ## To-Do
 
-- [ ] Wrap `GraphView` (bar/scatter series from pipeline data)
-- [ ] Restore native runtime libraries for TextMate syntax highlighting
+- [x] Wrap `GraphView` (bar/scatter/line series from pipeline data)
+- [x] Restore native runtime libraries for TextMate syntax highlighting

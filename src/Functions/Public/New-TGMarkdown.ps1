@@ -9,6 +9,10 @@ function New-TGMarkdown {
     .PARAMETER Path
     Markdown file to load instead of -Text.
 
+    .PARAMETER NoSyntaxHighlighting
+    Render fenced code blocks without syntax highlighting. Highlighting is on by default.
+    Token colors come from the Terminal.Gui theme.
+
     .PARAMETER OnLinkClicked
     Scriptblock run when a link is clicked. $_ has the link details.
 
@@ -46,6 +50,10 @@ function New-TGMarkdown {
         $Path,
 
         [Parameter(Mandatory=$false)]
+        [switch]
+        $NoSyntaxHighlighting,
+
+        [Parameter(Mandatory=$false)]
         [scriptblock]
         $OnLinkClicked,
 
@@ -76,6 +84,11 @@ function New-TGMarkdown {
 
     process {
         $view = [Terminal.Gui.Views.Markdown]::new()
+        # Markdown has no highlighter by default. TextMate needs the native libonigwrap restored by Install-TGDependency.ps1.
+        # The TextMate theme only sets the code block background; token colors come from the Terminal.Gui theme.
+        if (-not $NoSyntaxHighlighting) {
+            $view.SyntaxHighlighter = [Terminal.Gui.Drawing.TextMateSyntaxHighlighter]::new([TextMateSharp.Grammars.ThemeName]::DarkPlus)
+        }
         if ($PSBoundParameters.ContainsKey('Path')) {
             $view.Text = Get-Content -Path $Path -Raw -ErrorAction Stop
         } elseif ($PSBoundParameters.ContainsKey('Text')) {
