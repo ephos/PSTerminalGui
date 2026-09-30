@@ -44,8 +44,8 @@ TGWindow 'Pokédex (Esc quits)' {
         TGLabel -Id details -X 1 -Y 2 -Width Fill
         TGFrameView 'Base stats' -X 1 -Y 7 -Width Fill-1 -Height 8 {
             TGLabel -Id stats -Width Fill
-        } | Set-TGStyle -BorderStyle Rounded -PassThru
-    }
-} | Start-TGApplication
+        } | Set-TGStyle -BorderStyle Rounded -TitleForeground BrightGreen -TitleStyle Bold -PassThru
+    } | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru
+} | Set-TGStyle -TitleForeground White -TitleBackground Red -TitleStyle Bold -PassThru | Start-TGApplication
 
 Get-Job | Remove-Job -Force

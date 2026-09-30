@@ -164,9 +164,9 @@ TGWindow 'Pokédex (Esc quits)' {
         TGLabel 'Pick a Pokémon' -Id name -X 1 | Set-TGStyle -Foreground BrightYellow -TextStyle Bold -PassThru
         TGFrameView 'Base stats' -X 1 -Y 2 -Width Fill-1 -Height 8 {
             TGLabel -Id stats -Width Fill
-        } | Set-TGStyle -BorderStyle Rounded -PassThru
-    }
-} | Start-TGApplication
+        } | Set-TGStyle -BorderStyle Rounded -TitleForeground BrightGreen -TitleStyle Bold -PassThru
+    } | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru
+} | Set-TGStyle -TitleForeground White -TitleBackground Red -TitleStyle Bold -PassThru | Start-TGApplication
 ```
 
 ### Style gallery: colors, text, borders, and schemes
@@ -263,12 +263,12 @@ TGWindow 'System dashboard (Esc quits)' {
                 $log = journalctl --user --unit (Get-TGSelectedItem services).Unit --lines 200 --no-pager | Out-String
                 TGDialog 'Logs' -Width 90% -Height 80% -Button Close {
                     TGTextView $log -ReadOnly -Width Fill -Height Fill
-                } | Start-TGApplication | Out-Null
+                } | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru | Start-TGApplication | Out-Null
             }
         }
     }
     TGStatusBar { TGShortcut Ctrl+Q 'Quit' { Stop-TGApplication } }
-} | Start-TGApplication
+} | Set-TGStyle -TitleForeground BrightGreen -TitleStyle Bold -PassThru | Start-TGApplication
 ```
 
 ## Commands

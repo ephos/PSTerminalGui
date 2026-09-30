@@ -75,7 +75,7 @@ TGWindow 'System dashboard (Esc quits)' {
                 $log = journalctl --user --unit $service.Unit --lines 200 --no-pager 2>&1 | Out-String
                 TGDialog "Logs: $($service.Unit)" -Width 90% -Height 80% -Button Close {
                     TGTextView $log -ReadOnly -Width Fill -Height Fill
-                } | Start-TGApplication | Out-Null
+                } | Set-TGStyle -TitleForeground BrightCyan -TitleStyle Bold -PassThru | Start-TGApplication | Out-Null
             }
         }
     }
@@ -87,4 +87,4 @@ TGWindow 'System dashboard (Esc quits)' {
         }
         TGShortcut Ctrl+Q 'Quit' { Stop-TGApplication }
     }
-} | Start-TGApplication
+} | Set-TGStyle -TitleForeground BrightGreen -TitleStyle Bold -PassThru | Start-TGApplication
